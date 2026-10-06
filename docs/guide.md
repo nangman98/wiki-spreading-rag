@@ -39,14 +39,17 @@ sources: ["<원본 경로 또는 DOI>"]
 - **`## Connections`를 비우지 않는다.** 링크 없는 노트는 확산에서 고립된다(`build_neural.py`의 별 배경이 그 노트들이다).
 - **판이 바뀐 결과는 시점을 적는다.** "v5는 이전 판, 2026-09-10부터 정본은 X"처럼. 작은 LLM은 시점 없는 구판 값을 정본으로 읽는다.
 
-## 2. LLM으로 ingest
+## 2. LLM으로 ingest (격리형 crew)
 
-원본 문서를 노트로 옮기는 일은 LLM 에이전트(Claude Code 등)에 맡기고 사람은 결과를 검수한다. 저자 환경에서는 프로젝트 문서 284개를 주제 묶음 6개로 나눠 에이전트 6개를 병렬로 돌렸다.
+원본 문서를 노트로 옮기는 일은 LLM 에이전트에 맡기고 사람은 결과를 검수한다. 구조는 Kim et al.(Google Research·DeepMind·MIT, arXiv:2512.08296)의 결과를 따른다. 병렬로 나눌 수 있는 과제에서는 중앙 조정형 multi-agent가 단일 에이전트보다 80.9 % 나았고 검증 단계 없는 독립형은 오류를 17.2배까지 키웠으며(중앙형 4.4배), 단일 에이전트가 이미 약 45 % 이상 성공하면 이득이 0 이하로 떨어졌다.
 
-1. 변경분만 모은다: `find <project> -newermt <지난 ingest 날짜> -name '*.md'` → `raw/import-YYYYMMDD/`에 경로를 `__`로 펴서 복사.
-2. 디렉토리 단위로 묶어 에이전트마다 파일 목록 하나를 준다. 같은 주제를 두 에이전트에 나누지 않는다.
-3. 브리프는 [`ingest-brief-template.md`](ingest-brief-template.md)를 쓴다. 핵심은 idempotency(같은 주제는 새 노트 대신 제자리 갱신), 실존 slug만 링크, 수치 verbatim, 허브·MOC는 본체가 마지막에 일괄 수정.
-4. 에이전트 반환 = `slug | 신규/갱신 | 내용 | 소스` 표 + `done + skipped = 담당 파일 수`.
+1. 변경분만 모은다: `find <project> -newermt <지난 ingest 날짜> -name '*.md'`.
+2. 디렉토리 단위로 묶어 워커마다 파일 목록 하나를 준다. 같은 주제를 두 워커에 나누지 않는다.
+3. **워커는 서로의 초안을 보지 않는다.** 각자 `staging/<worker>/notes/`(새 노트)와 `staging/<worker>/updates/`(기존 노트 수정본 전체)에만 쓰고 vault는 읽기만 한다. 브리프는 [`ingest-brief-template.md`](ingest-brief-template.md).
+4. **병합은 supervisor 한 곳에서.** `python3 src/staging_merge.py --vault ~/my-vault --staging staging/` 가 같은 새 slug, 이미 있는 slug, 제목이 비슷한 노트(token Jaccard ≥ 0.5), 같은 노트 이중 수정, 깨진 링크를 `MERGE_REPORT.md`로 낸다. 충돌은 손으로 합치고 나머지는 `--apply`.
+5. **단독 대조군을 둔다.** 처음 쓰는 분할이거나 모델이 바뀐 뒤에는 같은 입력을 단독 에이전트 1개로도 돌리고 `python3 src/compare_runs.py`로 비교한다. crew가 이기지 못하면 그 규모는 단독으로 한다. 저자 환경의 비교 결과는 README에 있다.
+
+저자 환경에서 처음에는 워커 6개가 같은 vault에 동시에 썼고 그 결과 중복 노트 5쌍과 노트마다 엇갈린 판정이 생겨 사후 통합이 필요했다. 3–5번은 그 경험에서 나온 규칙이다.
 
 ## 3. 점검과 정리
 
