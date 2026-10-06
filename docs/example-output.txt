@@ -1,0 +1,13 @@
+분자 접합의 zero-bias conductance가 PBE 계산으로 실험보다 크게 나오는 이유는 PBE가 준위를 과도하게 E_F에 가까이 놓기 때문이며, 이는 semilocal functional의 self-interaction error 때문입니다. 이 오차는 분자 HOMO가 너무 높게 계산되어 transmission resonance가 E_F에 가까워지게 하여 conductance를 과대평가하게 합니다. 이를 보정하기 위해서는 [[dft-sigma-level-correction]]을 적용하여 준위를 조정해야 합니다. [dft-band-gap-underestimation] [transmission-function-interpretation]
+
+[검사 경고] 근거 노트와 대조해 확인되지 않은 항목:
+ - 인용 [dft-sigma-level-correction] 는 근거 노트 목록에 없음
+
+근거 노트 (확산 활성화 순):
+ 1. transmission-function-interpretation  [seed]
+ 2. dft-band-gap-underestimation  [seed]
+ 3. proj-example-nanowire-transport  [seed]
+ 4. exchange-correlation-functionals  [seed]
+ 5. eigenchannel-analysis  [seed]
+
+(model Qwen3-8B-4bit · prompt 4072 tok · load 5.2s · gen 33.7s)
