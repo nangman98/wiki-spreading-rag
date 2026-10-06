@@ -104,7 +104,7 @@ def main():
             if t.strip().rsplit("/", 1)[-1].lower() not in known:
                 conflicts[("broken-link", f"{s} -> [[{t.strip()}]]")] = [w]
 
-    blocked = {k[1].split(" ")[0] for k in conflicts if k[0] != "broken-link"}
+    blocked = {k[1].split(" ")[0] for k in conflicts}            # broken links block their draft too
     blocked |= {k[1].split(" ~ ")[1] for k in conflicts if k[0] == "near-duplicate"}
     lines = [f"# merge report — {staging.name}", "",
              f"workers: {len({w for xs in list(new.values()) + list(upd.values()) for w, _ in xs})} · "

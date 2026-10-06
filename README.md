@@ -38,7 +38,7 @@ git clone https://github.com/nangman98/wiki-spreading-rag && cd wiki-spreading-r
 # 1) 브라우저 앱 (Apple Silicon, 권장)
 pip install mlx-lm
 python3 src/wiki_app.py --vault example_vault        # 첫 실행 때 모델(약 4–5 GB) 다운로드
-open http://localhost:8765                            # "로컬 모델 요약" 체크를 끄면 검색만 (0.1 s 이내)
+# 앱이 이 터미널을 점유한다. 브라우저에서 http://localhost:8765 를 연다 ("로컬 모델 요약" 체크를 끄면 검색만, 0.1 s 이내)
 
 # 1') Ollama · LM Studio · llama.cpp 서버를 쓰는 경우 (Windows/Linux 포함)
 python3 src/wiki_app.py --vault example_vault --backend openai \
@@ -51,7 +51,7 @@ python3 src/spread_search.py "band gap 과소평가가 transmission에 주는 �
 python3 src/build_neural.py --out wiki-neural.html && open wiki-neural.html
 ```
 
-자기 위키에 쓰려면 `--vault ~/my-vault` 또는 환경변수 `WIKI_VAULT`를 준다. 앱은 `127.0.0.1`에만 열리므로 노트 내용이 기기 밖으로 나가지 않는다.
+자기 위키에 쓰려면 `--vault ~/my-vault` 또는 환경변수 `WIKI_VAULT`를 준다. 앱은 `127.0.0.1`에만 열리고 기본 경로(`--backend mlx`)에서는 노트 내용이 기기 밖으로 나가지 않는다. `--backend openai`로 다른 기기의 서버를 지정하면 근거 줄이 그 서버로 전송된다.
 
 ## 작동 방식
 
@@ -65,9 +65,9 @@ python3 src/build_neural.py --out wiki-neural.html && open wiki-neural.html
 
 ## 로컬 모델: 무엇으로 돌렸고 어떻게 작동하나
 
-저자 환경은 Apple M4, RAM 16 GB, 모델은 `mlx-community/Qwen3-8B-4bit`(MLX, thinking off)이다. 위키는 notes 542개, 링크 약 2,800개(무방향)다. 앱을 켜면 모델을 한 번 메모리에 올리고(5.2–5.5 s, 최대 사용 6.2 GB), 질문마다 위 1–5단계를 돈다.
+저자 환경은 Apple M4, RAM 16 GB, 모델은 `mlx-community/Qwen3-8B-4bit`(MLX, thinking off)이다. 위키는 검색 대상 문서 542개(`notes/` 492개 + 루트·`code/` 문서, `raw/`·`archive/` 제외), 링크 약 2,800개(무방향)다. 앱을 켜면 모델을 한 번 메모리에 올리고(5.2–5.5 s, 최대 사용 6.2 GB), 질문마다 위 1–5단계를 돈다.
 
-**시간은 대부분 모델이 프롬프트를 읽는 데(prefill) 쓰인다.** 측정한 속도는 prefill 151–160 tok/s, 생성 17–20 tok/s다.
+**시간은 대부분 모델이 프롬프트를 읽는 데(prefill) 쓰인다.** 측정한 속도는 prefill 151–167 tok/s, 생성 17–21 tok/s다.
 
 | 실행 (같은 질문: 2·3분자 정본 T(E_F)) | 프롬프트 | 걸린 시간 | 답 |
 |---|---|---|---|
@@ -76,9 +76,9 @@ python3 src/build_neural.py --out wiki-neural.html && open wiki-neural.html
 | 앱, 관련 줄 1,400자 × 6 | 5,756 tok | 42.2 s | **틀림**: 폐기된 판 값 + "eV" (단위만 검사가 검출) |
 | 검색만 (모델 없음) | — | 0.03–0.05 s | 판별 값 표가 정본 표시와 함께 그대로 나옴 |
 
-판정 [잠정, 질문 1개·3회]: 노트에 같은 양의 여러 판 값이 표로 함께 있으면 8B 모델은 정본을 안정적으로 고르지 못한다. 검사기는 "근거에 없는 숫자·단위·인용"은 잡지만 "근거에 있는데 질문에 안 맞는 숫자"는 잡지 못한다. 그래서 앱은 **검색 결과(근거 줄)를 주 출력**으로, 모델 요약을 참고용으로 둔다. 노트 쪽에서는 정본 행을 표 맨 위나 노트 첫 줄(주장 문장)에 두면 작은 모델의 오답이 줄어든다(guide §1).
+판정 [잠정, 질문 1개·3회]: 노트에 같은 양의 여러 판 값이 표로 함께 있으면 8B 모델은 정본을 안정적으로 고르지 못한다. 검사기는 "근거에 없는 숫자·단위·인용"은 잡지만 "근거에 있는데 질문에 안 맞는 숫자"는 잡지 못한다. 그래서 앱은 **검색 결과(근거 줄)를 주 출력**으로, 모델 요약을 참고용으로 둔다. 틀린 두 번 모두 근거로 들어간 표에는 판마다 상태 열(정본/폐기)이 있었다. 즉 노트에 상태를 적어 두는 것만으로는 8B 모델의 오답을 막지 못했다. 노트 형식을 바꿔서 막을 수 있는지는 측정하지 않았다.
 
-예시 vault(노트 24개, 링크 92개)에서 평가 질문 4개(`eval/questions.md`, `python3 src/eval.py`)로 잰 검색 recall:
+예시 vault(파일 24개, 그중 검색 대상 21개, 링크 92개)에서 평가 질문 4개(`eval/questions.md`, `python3 src/eval.py`)로 잰 검색 recall:
 
 | | BM25만 (α=0) | 확산 (α=0.5) |
 |---|---|---|
