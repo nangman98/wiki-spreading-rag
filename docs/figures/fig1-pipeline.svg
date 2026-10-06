@@ -28,9 +28,9 @@
 
   <rect class="box" x="262" y="54" width="200" height="96" rx="6" style="stroke:#0072B2;stroke-width:2"/>
   <text class="t" x="274" y="80">LLM ingest agents</text>
-  <text class="s" x="274" y="102">parallel sub-agents, one per</text>
-  <text class="s" x="274" y="120">topic cluster; verbatim numbers,</text>
-  <text class="s" x="274" y="138">"??" for conflicts</text>
+  <text class="s" x="274" y="102">isolated workers → own staging;</text>
+  <text class="s" x="274" y="120">one supervisor merges conflicts;</text>
+  <text class="s" x="274" y="138">solo run kept as the control</text>
 
   <rect class="box" x="510" y="54" width="210" height="96" rx="6" style="stroke:#009E73;stroke-width:2"/>
   <text class="t" x="522" y="80">Markdown wiki (vault)</text>
@@ -70,9 +70,9 @@
   <text class="s" x="466" y="370">graph (α = 0.5, 20 iterations)</text>
 
   <rect class="box" x="714" y="304" width="222" height="86" rx="6" style="stroke:#0072B2;stroke-width:2"/>
-  <text class="t" x="726" y="330">3. Local LLM (MLX)</text>
-  <text class="s" x="726" y="352">top-k note bodies → prompt;</text>
-  <text class="s" x="726" y="370">answer cites [slug] or "모르겠다"</text>
+  <text class="t" x="726" y="330">3. Evidence → local LLM</text>
+  <text class="s" x="726" y="352">matching lines of top-k notes,</text>
+  <text class="s" x="726" y="370">shown first; optional summary</text>
 
   <rect class="box" x="454" y="420" width="220" height="80" rx="6" style="stroke:#D55E00;stroke-width:2"/>
   <text class="t" x="466" y="446">4. Grounding check</text>
@@ -81,8 +81,8 @@
 
   <rect class="box" x="214" y="420" width="200" height="80" rx="6"/>
   <text class="t" x="226" y="446">Answer</text>
-  <text class="s" x="226" y="468">+ evidence notes (seed / via)</text>
-  <text class="s" x="226" y="486">+ warnings, if any</text>
+  <text class="s" x="226" y="468">evidence lines (seed / via)</text>
+  <text class="s" x="226" y="486">+ cited summary + warnings</text>
 
   <path class="ln" d="M174,347 H210"/>
   <path class="ln" d="M414,347 H450"/>
