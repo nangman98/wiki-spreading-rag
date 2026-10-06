@@ -23,13 +23,22 @@
   #tip { position: fixed; z-index: 7; pointer-events: none; display: none; max-width: 340px;
     background: rgba(10,14,26,.92); border: 1px solid rgba(255,255,255,.18); border-radius: 6px;
     padding: 5px 8px; font: 12px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
-  #panel { position: fixed; left: 14px; bottom: 14px; z-index: 6; display: none; width: min(380px, calc(100vw - 28px));
-    max-height: 46vh; overflow: auto; background: rgba(10,14,26,.94); border: 1px solid rgba(255,255,255,.15);
+  #panel { position: fixed; left: 14px; bottom: 14px; z-index: 6; display: none; width: min(560px, calc(100vw - 28px));
+    max-height: 72vh; overflow: auto; background: rgba(10,14,26,.94); border: 1px solid rgba(255,255,255,.15);
     border-radius: 10px; padding: 12px 14px; font-size: 13px; }
   #panel h3 { margin: 0 0 6px; font-size: 14px; line-height: 1.35; }
   #panel .meta { color: var(--mute); font-size: 11px; margin-bottom: 8px; font-family: ui-monospace, Menlo, monospace; }
   #panel .grp { color: var(--accent); font: 11px ui-monospace, Menlo, monospace; margin: 8px 0 2px; }
   #panel a { display: block; color: #9cc3ff; text-decoration: none; padding: 1px 0; cursor: pointer; }
+  #panel .body { white-space: pre-wrap; font-size: 12.5px; line-height: 1.55; color: #dfe5f1; border-top: 1px solid rgba(255,255,255,.12);
+    border-bottom: 1px solid rgba(255,255,255,.12); margin: 10px 0; padding: 10px 0; }
+  #panel .body a { display: inline; }
+  #panel .md { white-space: normal; }
+  #panel .md h1 { font-size: 14px; margin: 0 0 6px; } #panel .md h2 { font-size: 13px; margin: 12px 0 4px; color: #9cc3ff; }
+  #panel .md h3 { font-size: 12.5px; margin: 10px 0 4px; } #panel .md p, #panel .md li { margin: 4px 0; }
+  #panel .md table { border-collapse: collapse; font-size: 11.5px; margin: 6px 0; display: block; overflow-x: auto; }
+  #panel .md th, #panel .md td { border: 1px solid rgba(255,255,255,.16); padding: 2px 6px; vertical-align: top; }
+  #panel .md code { font-size: 11.5px; background: rgba(255,255,255,.08); padding: 0 3px; border-radius: 3px; }
   #panel .x { position: absolute; top: 6px; right: 10px; cursor: pointer; color: var(--mute); }
   #hint { position: fixed; bottom: 12px; right: 16px; z-index: 5; font-size: 11px; color: var(--mute); }
   body.embed #brand, body.embed #lock, body.embed #hint { display: none; }
@@ -44,6 +53,7 @@
 <div id="tip"></div>
 <div id="panel"><span class="x" id="px">×</span><div id="pbody"></div></div>
 <div id="hint">hover a neuron · click to inspect</div>
+<script>/*__MARKED__*/</script>
 <script>
 const DATA = /*__DATA_PUB__*/null;
 const ENC = /*__ENC__*/null;
@@ -52,7 +62,9 @@ const EMBED = new URLSearchParams(location.search).has("embed");
 if (EMBED) document.body.classList.add("embed");
 const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-let NAMES = PLAIN ? PLAIN.names : null;
+let NAMES = PLAIN ? PLAIN.names : null, TEXTS = PLAIN ? PLAIN.texts : null, SLUGS = PLAIN ? PLAIN.slugs : null;
+let SLUGIDX = null;
+function slugIndex() { if (!SLUGIDX && SLUGS) { SLUGIDX = {}; SLUGS.forEach((s, i) => SLUGIDX[s.toLowerCase()] = i); } return SLUGIDX; }
 const LCOL = ["#ff8a65", "#7fd6a4", "#f3e3b8", "#8ecae6", "#ffffff"];   // per-layer hue
 const N = DATA.deg.length;
 const layerOf = new Int8Array(N), rankOf = new Int32Array(N);
@@ -232,14 +244,24 @@ function select(n) {
   selected = n;
   if (n < 0) { panel.style.display = "none"; return; }
   const by = {};
-  for (const ei of adj[n]) { const o = E[ei].s === n ? E[ei].t : E[ei].s; (by[layerOf[o]] ||= []).push(o); }
+  const seen = new Set();
+  for (const ei of adj[n]) { const o = E[ei].s === n ? E[ei].t : E[ei].s; if (seen.has(o)) continue; seen.add(o); (by[layerOf[o]] ||= []).push(o); }
   let html = `<h3>${esc(label(n))}</h3><div class="meta">NL ${layerOf[n]} ${esc(DATA.layers[layerOf[n]].name)} · links ${DATA.deg[n]}</div>`;
   if (!NAMES) html += `<div class="meta">unlock to read titles</div>`;
+  if (TEXTS && TEXTS[n]) {
+    const si = slugIndex();
+    const md = TEXTS[n].replace(/\[\[([^\]|#]+)(?:#[^\]|]*)?(?:\|([^\]]*))?\]\]/g, (m, t, lab) => {
+      const j = si[t.trim().toLowerCase()];
+      return j === undefined ? esc(lab || t) : `<a data-n="${j}">${esc(lab || t)}</a>`;
+    });
+    html += window.marked ? `<div class="body md">${marked.parse(md)}</div>` : `<div class="body">${esc(md)}</div>`;
+  }
+  if (TEXTS) html += `<div class="grp" style="margin-top:12px">linked notes</div>`;
   for (const li of Object.keys(by).sort()) {
     html += `<div class="grp">→ NL ${li} ${esc(DATA.layers[li].name)} (${by[li].length})</div>`;
     for (const o of by[li].slice(0, 60)) html += `<a data-n="${o}">${esc(label(o))}</a>`;
   }
-  pbody.innerHTML = html; panel.style.display = "block";
+  pbody.innerHTML = html; panel.style.display = "block"; panel.scrollTop = 0;
   pbody.querySelectorAll("a[data-n]").forEach(a => a.onclick = () => select(+a.dataset.n));
 }
 
@@ -261,7 +283,7 @@ lockBtn.onclick = () => { if (NAMES) return; box.style.display = box.style.displ
 pw.addEventListener("keydown", async ev => {
   if (ev.key !== "Enter" || !ENC) return;
   pwmsg.textContent = "decrypting…";
-  try { NAMES = (await decrypt(pw.value)).names; box.style.display = "none"; lockBtn.textContent = "titles unlocked"; if (selected >= 0) select(selected); }
+  try { const d = await decrypt(pw.value); NAMES = d.names; TEXTS = d.texts || null; SLUGS = d.slugs || null; SLUGIDX = null; box.style.display = "none"; lockBtn.textContent = "titles unlocked"; if (selected >= 0) select(selected); }
   catch { pwmsg.textContent = "wrong password"; }
 });
 

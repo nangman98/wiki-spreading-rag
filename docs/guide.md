@@ -41,7 +41,7 @@ sources: ["<원본 경로 또는 DOI>"]
 
 ## 2. LLM으로 ingest
 
-원본 문서를 노트로 옮기는 일은 LLM 에이전트(Claude Code 등)에 맡기고, 사람은 결과를 검수한다. 저자 환경에서는 프로젝트 문서 284개를 주제 묶음 6개로 나눠 에이전트 6개를 병렬로 돌렸다.
+원본 문서를 노트로 옮기는 일은 LLM 에이전트(Claude Code 등)에 맡기고 사람은 결과를 검수한다. 저자 환경에서는 프로젝트 문서 284개를 주제 묶음 6개로 나눠 에이전트 6개를 병렬로 돌렸다.
 
 1. 변경분만 모은다: `find <project> -newermt <지난 ingest 날짜> -name '*.md'` → `raw/import-YYYYMMDD/`에 경로를 `__`로 펴서 복사.
 2. 디렉토리 단위로 묶어 에이전트마다 파일 목록 하나를 준다. 같은 주제를 두 에이전트에 나누지 않는다.
@@ -61,12 +61,13 @@ python3 src/lint.py --vault ~/my-vault      # broken wikilink, 고립 노트, 80
 ## 4. 검색과 질의
 
 ```bash
+python3 src/wiki_app.py --vault ~/my-vault                               # 브라우저 앱 http://localhost:8765
 python3 src/spread_search.py "질문" --vault ~/my-vault -k 12            # 순위 + seed/via
 python3 src/spread_search.py "질문" --alpha 0                          # BM25만 (비교용)
 python3 src/wiki_ask.py "질문" --vault ~/my-vault -n 6                 # 로컬 LLM 답
 ```
 
-조정 손잡이: `--seeds` (출발 노트 수, 기본 8), `--alpha` (확산 세기, 0–1), `-n` (LLM에 넣는 노트 수), `--chars` (노트당 글자 수). 프롬프트 길이가 생성 시간을 정한다 — 8B 모델, M4 16 GB에서 7,680 tokens에 약 67 s.
+앱에서는 근거 노트와 해당 줄이 먼저 뜨고 모델 요약이 뒤따른다. 수치는 근거 줄에서 확인한다(8B 모델은 판별 표에서 폐기된 값을 고른 사례가 있다, README 참고). 조정 손잡이: `--budget` (노트당 글자 수, 앱), `--seeds` (출발 노트 수, 기본 8), `--alpha` (확산 세기, 0–1), `-n` (LLM에 넣는 노트 수), `--chars` (노트당 글자 수). 프롬프트 길이가 생성 시간을 정한다 — 8B 모델, M4 16 GB에서 7,680 tokens에 약 67 s.
 
 Claude Code 같은 에이전트에서 쓰려면 `spread_search.py --json` 결과의 `path`를 읽게 하면 된다. 로컬 LLM 대신 에이전트가 근거 노트를 읽고 답하는 구성이다.
 
@@ -78,7 +79,7 @@ python3 src/build_neural.py --vault ~/my-vault --out site/wiki-neural/index.html
         --password "$WIKI_GRAPH_PASSWORD"                                             # 공개용
 ```
 
-공개용은 층 구조·링크·개수만 평문이고, 노트 제목은 AES-256-GCM(PBKDF2-SHA256 600k)으로 암호화되어 브라우저에서 비밀번호를 넣어야 풀린다. 노트 본문은 페이지에 넣지 않는다. 정적 사이트(GitHub Pages 등)에 올리고, 위키 저장소가 바뀔 때 CI에서 다시 빌드하면 된다. `?embed=1`을 붙이면 UI 없이 강조가 자동 순환하는 카드 모드가 된다.
+공개용은 층 구조·링크·개수만 평문이다. 노트 제목과 본문(노트당 6,000자까지)은 AES-256-GCM(PBKDF2-SHA256 600k)으로 암호화되어, 브라우저에서 비밀번호를 넣어야 풀리고 뉴런을 누르면 본문이 렌더된다. 정적 사이트(GitHub Pages 등)에 올리고 위키 저장소가 바뀔 때 CI에서 다시 빌드하면 된다. `?embed=1`을 붙이면 UI 없이 강조가 자동 순환하는 카드 모드가 된다.
 
 ## 6. 평가와 다음 단계
 

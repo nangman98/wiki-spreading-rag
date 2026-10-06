@@ -53,12 +53,24 @@ def bm25(docs, query, k1=1.2, b=0.75):
     return scores
 
 
+_CACHE = {}
+
+
+def load_index(vault=DEFAULT_VAULT, include_sources=False, refresh=False):
+    """Parse the vault once and keep nodes, tokenized docs and links in memory."""
+    key = (str(Path(vault).expanduser()), include_sources)
+    if refresh or key not in _CACHE:
+        nodes, links = build_graph(vault)
+        if not include_sources:
+            nodes = [x for x in nodes if not x["id"].startswith(("raw/", "archive/"))]
+        docs = [tokens((x["name"] + " ") * 3 + FRONT_RE.sub("", x["content"])) for x in nodes]
+        _CACHE[key] = (nodes, links, docs)
+    return _CACHE[key]
+
+
 def search(query, vault=DEFAULT_VAULT, k=10, n_seeds=8, alpha=0.5, include_sources=False, iters=20):
-    nodes, links = build_graph(vault)
-    if not include_sources:
-        nodes = [x for x in nodes if not x["id"].startswith(("raw/", "archive/"))]
+    nodes, links, docs = load_index(vault, include_sources)
     idx = {x["id"]: i for i, x in enumerate(nodes)}
-    docs = [tokens((x["name"] + " ") * 3 + FRONT_RE.sub("", x["content"])) for x in nodes]
     lex = bm25(docs, query)
     seeds = [i for i in sorted(range(len(nodes)), key=lambda i: -lex[i])[:n_seeds] if lex[i] > 0]
     if not seeds:

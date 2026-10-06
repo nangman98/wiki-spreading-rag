@@ -4,11 +4,12 @@
 Layers follow how knowledge flows through the vault (left -> right):
   L0 sources (raw/, archive/) -> L1 atomic notes -> L2 project hubs
   -> L3 MOC hubs (moc-*) -> L4 index (root-level md).
+Clicking a neuron opens the note body (markdown rendered, [[links]] clickable).
 Unlinked files become the background star field. The picture is a metaphor:
 there are no learned weights, only your [[wikilinks]].
 
     python3 src/build_neural.py --vault example_vault --out docs/wiki-neural.html
-    python3 src/build_neural.py --vault ~/wiki --password '...'   # titles AES-256-GCM encrypted
+    python3 src/build_neural.py --vault ~/wiki --password '...'   # titles + bodies AES-256-GCM encrypted
 """
 
 import argparse
@@ -17,6 +18,7 @@ import gzip
 import hashlib
 import json
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -86,8 +88,14 @@ def main():
     for u, v in plinks:
         deg[u] += 1
         deg[v] += 1
-    title = {n["id"]: n["name"] for n in nodes}
-    secret = {"names": [title[n] for n in sorted(idx, key=idx.get)]}
+    byid = {n["id"]: n for n in nodes}
+    order = sorted(idx, key=idx.get)
+    texts = []
+    for nid in order:
+        body = re.sub(r"\A---\n.*?\n---\n", "", byid[nid]["content"], flags=re.S).strip()
+        texts.append(body[:6000] + ("\n…(truncated)" if len(body) > 6000 else ""))
+    secret = {"names": [byid[n]["name"] for n in order], "slugs": [n.rsplit("/", 1)[-1] for n in order],
+              "texts": texts}
 
     html = (HERE.parent / "templates" / "neural_template.html").read_text(encoding="utf-8")
     pub = {"layers": layers, "links": plinks, "deg": deg, "stars": stars}
@@ -95,8 +103,9 @@ def main():
         enc = encrypt(a.password, gzip.compress(json.dumps(secret, ensure_ascii=False).encode(), 9, mtime=0))
         plain = "null"
     else:
-        enc, plain = None, json.dumps(secret, ensure_ascii=False)
-    html = (html.replace("/*__DATA_PUB__*/null", json.dumps(pub, separators=(",", ":")))
+        enc, plain = None, json.dumps(secret, ensure_ascii=False).replace("</", "<\\/")
+    html = (html.replace("/*__MARKED__*/", (HERE.parent / "templates" / "marked.min.js").read_text(encoding="utf-8"))
+                .replace("/*__DATA_PUB__*/null", json.dumps(pub, separators=(",", ":")))
                 .replace("/*__ENC__*/null", json.dumps(enc))
                 .replace("/*__PLAIN__*/null", plain))
     Path(a.out).write_text(html, encoding="utf-8")
