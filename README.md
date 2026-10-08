@@ -25,6 +25,7 @@
 | `src/build_neural.py` + `templates/` | vault를 층 신경망 모양 HTML 한 장으로 렌더. 뉴런을 누르면 노트 본문(markdown) 표시, 제목·본문 AES 암호화 옵션 |
 | `example_vault/` | 가상의 DFT·전자수송 학습 위키 (바로 돌려 볼 수 있는 예시) |
 | `docs/guide.md` | 자기 위키에 적용하는 단계별 가이드 (vault 규약, LLM ingest, 평가) |
+| `src/canon.py`, `src/stale_check.py` | 정본 값 등록부(`canon-*.md`) 읽기, 이전 값이 상태 표시 없이 쓰인 줄 찾기. 검색은 대체된 노트를 낮추고 검사기는 답의 이전 값을 경고 |
 | `src/staging_merge.py`, `src/compare_runs.py` | 격리형 crew의 supervisor 병합(충돌 검출), 단독 대 crew 대조 지표 |
 | `src/lint.py`, `src/eval.py`, `eval/questions.md` | 링크 점검, 평가 질문과 Recall@k 측정 (평가 파일은 vault 밖에 둔다) |
 | `docs/example-output.txt`, `docs/wiki-neural-example.html` | 예시 vault로 실제 실행한 답변 출력과 시각화 결과 |
@@ -78,14 +79,14 @@ python3 src/build_neural.py --out wiki-neural.html && open wiki-neural.html
 
 판정 [잠정, 질문 1개·3회]: 노트에 같은 양의 여러 판 값이 표로 함께 있으면 8B 모델은 정본을 안정적으로 고르지 못한다. 검사기는 "근거에 없는 숫자·단위·인용"은 잡지만 "근거에 있는데 질문에 안 맞는 숫자"는 잡지 못한다. 그래서 앱은 **검색 결과(근거 줄)를 주 출력**으로, 모델 요약을 참고용으로 둔다. 틀린 두 번 모두 근거로 들어간 표에는 판마다 상태 열(정본/폐기)이 있었다. 즉 노트에 상태를 적어 두는 것만으로는 8B 모델의 오답을 막지 못했다. 노트 형식을 바꿔서 막을 수 있는지는 측정하지 않았다.
 
-예시 vault(파일 24개, 그중 검색 대상 21개, 링크 92개)에서 평가 질문 4개(`eval/questions.md`, `python3 src/eval.py`)로 잰 검색 recall:
+예시 vault(파일 25개, 그중 검색 대상 22개, 정본 값 등록부 예시 1개 포함)에서 평가 질문 4개(`eval/questions.md`, `python3 src/eval.py`)로 잰 검색 recall:
 
 | | BM25만 (α=0) | 확산 (α=0.5) |
 |---|---|---|
 | Recall@3 평균 | 0.73 | 0.67 |
-| Recall@5 평균 | 0.85 | 0.85 |
+| Recall@5 평균 | 0.79 | 0.79 |
 
-이 작은 vault에서는 확산의 이득이 없다. 노트가 적고 링크가 촘촘해 BM25 상위권이 이미 정답 근처를 덮기 때문으로 보이며 [잠정], 질문 4개는 판정에 부족하다. 확산이 효과를 내는지는 자기 위키의 평가셋으로 재야 한다(guide §6). 수치를 맞추려고 α를 조정하지 않았다.
+이 작은 vault에서는 확산의 이득이 없다. 등록부 노트 1개를 추가하자 Recall@5가 두 방식 모두 0.85에서 0.79로 내려갔다. 노트 하나가 늘어도 상위 5위 안의 자리를 다툰다. 노트가 적고 링크가 촘촘해 BM25 상위권이 이미 정답 근처를 덮기 때문으로 보이며 [잠정], 질문 4개는 판정에 부족하다. 확산이 효과를 내는지는 자기 위키의 평가셋으로 재야 한다(guide §6). 수치를 맞추려고 α를 조정하지 않았다.
 
 ## 단독 대 crew 대조 실험
 

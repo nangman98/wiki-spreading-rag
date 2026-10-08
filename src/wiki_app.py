@@ -28,6 +28,7 @@ from wiki_ask import MODEL, SYSTEM, check  # noqa: E402
 
 ARGS = None
 MODEL_OBJ = None
+SUPERSEDED = {}
 LOCK = threading.Lock()
 
 
@@ -106,7 +107,7 @@ def answer(handler, q, use_llm=True):
         text = Path(h["path"]).read_text(encoding="utf-8", errors="replace")
         h["snippet"] = snippet(text, qtok, ARGS.budget)
         blocks.append(f"[노트 {slug}]\n{h['snippet']}")
-    sse(handler, "hits", [{k: h[k] for k in ("slug", "title", "seed", "via", "obsidian", "snippet")} for h in hits])
+    sse(handler, "hits", [{k: h[k] for k in ("slug", "title", "seed", "via", "obsidian", "snippet", "superseded")} for h in hits])
     if not use_llm:
         sse(handler, "stats", {"seconds": round(time.time() - t0, 2)})
         return
@@ -138,7 +139,7 @@ def answer(handler, q, use_llm=True):
             if piece:
                 sse(handler, "token", piece)
     clean = re.sub(r"<think>.*?</think>\s*", "", out, flags=re.S).strip()
-    sse(handler, "check", check(clean, hits, blocks))
+    sse(handler, "check", check(clean, hits, blocks, SUPERSEDED))
     if last is not None:
         sse(handler, "stats", {"prompt_tokens": last.prompt_tokens, "prompt_tps": round(last.prompt_tps),
                                "gen_tps": round(last.generation_tps, 1), "seconds": round(time.time() - t0, 1)})
@@ -211,7 +212,7 @@ $("f").onsubmit=e=>{e.preventDefault();const q=$("q").value.trim();if(!q)return;
  es.addEventListener("hits",ev=>{const hs=JSON.parse(ev.data);$("hbox").classList.remove("hide");
   if(useLLM)$("ans").textContent="모델이 노트 "+hs.length+"개를 읽는 중… (첫 글자까지 10–40 s)";
   for(const h of hs){const li=document.createElement("li");const a=document.createElement("a");a.href=h.obsidian;a.textContent=h.slug;
-   const t=document.createElement("span");t.className="tag";t.textContent=" "+(h.seed?"seed":"via "+String(h.via).split("/").pop())+" · "+h.title;
+   const t=document.createElement("span");t.className="tag";t.textContent=" "+(h.seed?"seed":"via "+String(h.via).split("/").pop())+(h.superseded?" · [이전 판]":"")+" · "+h.title;
    const pre=document.createElement("pre");pre.textContent=h.snippet;li.append(a,t,pre);$("hits").append(li);}});
  es.addEventListener("token",ev=>{if(first){$("ans").textContent="";first=false;}$("ans").textContent+=JSON.parse(ev.data);});
  es.addEventListener("check",ev=>{const w=JSON.parse(ev.data);if(w.length){$("wbox").classList.remove("hide");
@@ -244,6 +245,11 @@ def main():
     else:
         print(f"using {ARGS.base_url} model={ARGS.model}", flush=True)
     nodes, _, _ = load_index(ARGS.vault)
+    from canon import load_registry, superseded_index
+    global SUPERSEDED
+    reg = load_registry(ARGS.vault)
+    SUPERSEDED = superseded_index(reg)
+    print(f"canon registry: {len(reg)} rows, {len(SUPERSEDED)} previous values", flush=True)
     print(f"vault {ARGS.vault}: {len(nodes)} notes indexed", flush=True)
     print(f"open http://localhost:{ARGS.port}", flush=True)
     ThreadingHTTPServer(("127.0.0.1", ARGS.port), Handler).serve_forever()

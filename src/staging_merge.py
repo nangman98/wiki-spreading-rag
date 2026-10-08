@@ -51,7 +51,14 @@ def slug_jaccard(a, b):
 
 
 def similar(s1, t1, s2, t2, dup, slug_dup):
-    """Near-duplicate if either the titles or the slugs overlap enough."""
+    """Near-duplicate if either the titles or the slugs overlap enough.
+
+    Slugs that differ only in numeric tokens (meeting-2026-03-05 vs meeting-2026-03-16)
+    are distinct notes, not duplicates.
+    """
+    diff = set(s1.split("-")) ^ set(s2.split("-"))
+    if diff and all(x.isdigit() for x in diff):
+        return False, "numeric-only slug difference"
     j, js = jaccard(t1, t2), slug_jaccard(s1, s2)
     return (j >= dup or js >= slug_dup), f"title J={j:.2f} slug J={js:.2f}"
 

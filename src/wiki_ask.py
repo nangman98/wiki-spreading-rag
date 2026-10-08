@@ -44,8 +44,9 @@ NUM_RE = re.compile(r"[−-]?\d+(?:\.\d+)?(?:\s*[×x]\s*10[⁻-]?[⁰¹²³⁴�
 UNIT_RE = re.compile(r"([−-]?\d+(?:\.\d+)?(?:\s*[×x]\s*10[⁻-]?[⁰¹²³⁴⁵⁶⁷⁸⁹\d]+)?)\s*(meV/atom|meV/f\.u\.|eV/Å|eV|meV|Å|e/f\.u\.|e|K|GPa|%)(?![A-Za-z])")
 
 
-def check(ans, hits, blocks):
-    """Mechanical guardrail: numbers, number+unit pairs and cited slugs must appear in the evidence."""
+def check(ans, hits, blocks, superseded=None):
+    """Mechanical guardrail: numbers, number+unit pairs and cited slugs must appear in the evidence;
+    numbers registered as previous values in canon-*.md are flagged even when the evidence contains them."""
     ev = "\n".join(blocks)
     ev_n = ev.replace("−", "-")
     slugs = {h["id"].split("/", 1)[-1] for h in hits}
@@ -61,6 +62,14 @@ def check(ans, hits, blocks):
     for c in re.findall(r"\[\[?([a-z0-9][a-z0-9\-]+)\]?\]", ans):
         if c not in slugs:
             out.append(f"인용 [{c}] 는 근거 노트 목록에 없음")
+    if superseded:
+        from canon import numbers_in
+        for raw, n in numbers_in(ans, 2):
+            for rid, canonical, label, note in superseded.get(n, []):
+                out.append(f"{raw} 는 이전 값 {label} — 현행 {canonical} ({rid}, [[{note}]])")
+    for h in hits:
+        if h.get("superseded"):
+            out.append(f"근거 노트 [{h['id'].split('/', 1)[-1]}] 는 이전 판(status: superseded)")
     return out
 
 
@@ -95,7 +104,8 @@ def main():
     ans = re.sub(r"<think>.*?</think>\s*", "", ans, flags=re.S).strip()
 
     print(ans)
-    warn = check(ans, hits, blocks)
+    from canon import load_registry, superseded_index
+    warn = check(ans, hits, blocks, superseded_index(load_registry(a.vault)))
     if warn:
         print("\n[검사 경고] 근거 노트와 대조해 확인되지 않은 항목:")
         for w in warn:

@@ -94,12 +94,15 @@ def search(query, vault=DEFAULT_VAULT, k=10, n_seeds=8, alpha=0.5, include_sourc
                 for j in nb[i]:
                     new[j] += share / math.sqrt(deg[j])
         act = new
+    sup = [bool(re.search(r"^status:\s*superseded", x["content"], re.M)) for x in nodes]
+    act = [a * (0.3 if s else 1.0) for a, s in zip(act, sup)]      # superseded notes stay findable, ranked lower
     seedset = set(seeds)
     out = []
     for i in sorted(range(len(nodes)), key=lambda i: -act[i])[:k]:
         via = None if i in seedset or not nb[i] else nodes[max(nb[i], key=lambda j: act[j])]["id"]
         out.append({"id": nodes[i]["id"], "title": nodes[i]["name"], "activation": round(act[i], 4),
-                    "seed": i in seedset, "bm25": round(lex[i], 2), "via": via, "path": nodes[i]["path"]})
+                    "seed": i in seedset, "bm25": round(lex[i], 2), "via": via, "path": nodes[i]["path"],
+                    "superseded": sup[i]})
     return out
 
 
@@ -121,6 +124,7 @@ def main():
         return
     for r, x in enumerate(res, 1):
         tag = "seed" if x["seed"] else f"via {x['via'].split('/')[-1]}"
+        tag += ", 이전 판" if x["superseded"] else ""
         print(f"{r:2d}. {x['activation']:.4f}  {x['id']:<48.48}  [{tag}]")
 
 
